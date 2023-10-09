@@ -7,7 +7,7 @@ import * as React from 'react'
 import './styles.css'
 interface ChatItemProps {
   isMe?: boolean,
-  message: string,
+  message?: string,
 }
 
 const ChatItem = (props: ChatItemProps) => {

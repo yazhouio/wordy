@@ -3,40 +3,68 @@
 import ChatItem from "@/app/chat/ChatItem";
 import {Button, Card, CardBody, Input} from "@nextui-org/react";
 import * as React from 'react'
+import {chat$, chatList$, WsContext} from "@/app/websocket";
+import {EventType, WsRequest} from "@/app/interfaces";
 
 const Chat = () => {
-  let data = [
-    {
-      message: '月亮的英文是`moon`。它是地球的天然卫星，是在夜空中能够看到的亮物体之一。下面是一些关于月亮的英文解释和例句：\n\n解释：The moon is a natural satellite of the Earth that can be seen in the night sky.\n\n例句：\n1. `Look at how bright the moon is tonight.`\n2. `The moon orbits around the Earth.`\n3. `During a full moon, the entire surface of the moon is visible.`',
-      isMe: false,
-    },
-    {
-      message: '月亮的英文是`moon`。它是地球的天然卫星，是在夜空中能够看到的亮物体之一。下面是一些关于月亮的英文解释和例句：\n\n解释：The moon is a natural satellite of the Earth that can be seen in the night sky.\n\n例句：\n1. `Look at how bright the moon is tonight.`\n2. `The moon orbits around the Earth.`\n3. `During a full moon, the entire surface of the moon is visible.`',
-      isMe: true,
-    }
-  ]
-  return (
-      <main className="flex min-h-screen min-w-full p-4 flex-col">
-        <h1 className="flex-none">英语启蒙</h1>
-        <div className='flex flex-auto flex-col'>
-          <div className='flex-auto'>
-            {
-              data.map(
-                  (item, index) => <ChatItem key={index} {...item} />
-              )
+    const {send} = React.useContext(WsContext);
+    const [data, setData] = React.useState<WsRequest[]>([])
+    const [value, setValue] = React.useState('')
+    React.useEffect(
+        () => {
+            const sub = chatList$.subscribe(
+                (list) => {
+                    console.log(list)
+                    setData(list)
+                }
+            );
+            return () => {
+                sub.unsubscribe();
             }
-          </div>
-          <Card className='flex-none'>
-            <CardBody className='flex flex-row gap-2'>
-              <div className='flex-auto'>
-                <Input placeholder={'请输入'}/>
-              </div>
-              <Button className='flex-none'>发送</Button>
-            </CardBody>
-          </Card>
-        </div>
-      </main>
-  )
+        }, []
+    )
+
+
+    return (
+        <main className="flex min-h-screen min-w-full p-4 flex-col">
+            <h1 className="flex-none text-foreground">英语启蒙</h1>
+            <div className='flex flex-auto flex-col'>
+                <div className='flex-auto'>
+                    {
+                        data.map(
+                            (item, index) => <ChatItem key={index}
+                                                       isMe={item.isMe}
+                                                       message={item.event?.chat}/>
+                        )
+                    }
+                </div>
+                <Card className='flex-none'>
+                    <CardBody className='flex flex-row gap-2'>
+                        <div className='flex-auto'>
+                            <Input placeholder={'请输入'} value={value}
+                                   onChange={
+                                       e => {
+                                           setValue(e.target.value)
+                                       }
+                                   }
+                            />
+                        </div>
+                        <Button className='flex-none'
+                                onClick={() => {
+                                    send?.({
+                                        from: 1,
+                                        event: {chat: value},
+                                        eventType: EventType.Chat,
+                                        to: 0,
+                                        msgId: 'adad'
+                                    })
+                                }}
+                        >发送</Button>
+                    </CardBody>
+                </Card>
+            </div>
+        </main>
+    )
 }
 
 export default Chat

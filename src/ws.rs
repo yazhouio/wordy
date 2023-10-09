@@ -12,7 +12,7 @@ use serde::Deserialize;
 
 use crate::utils::event;
 
-pub type UserPeerMap = Arc<Mutex<HashMap<u64, Sender<event::MsgEvent>>>>;
+pub type UserPeerMap = Arc<Mutex<HashMap<u64, Sender<event::WsResponse>>>>;
 
 #[derive(Deserialize)]
 pub struct SubjectArgs {
@@ -21,7 +21,7 @@ pub struct SubjectArgs {
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
-    State((s, user_peer_map)): State<(Sender<event::MsgRequest>, UserPeerMap)>,
+    State((s, user_peer_map)): State<(Sender<event::WsRequest>, UserPeerMap)>,
     Query(SubjectArgs { uid }): Query<SubjectArgs>,
     user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -34,8 +34,8 @@ pub async fn ws_handler(
     ws.on_upgrade(move |socket| handle_socket(s, uid, user_peer_map, socket, addr))
 }
 
-async fn handle_socket(s: Sender<event::MsgRequest>,  uid: u64, user_peer_map: UserPeerMap, mut socket: WebSocket, who: SocketAddr) {
-    let (s1, r1) = unbounded::<event::MsgEvent>();
+async fn handle_socket(s: Sender<event::WsRequest>, uid: u64, user_peer_map: UserPeerMap, mut socket: WebSocket, who: SocketAddr) {
+    let (s1, r1) = unbounded::<event::WsResponse>();
     let (mut sender, mut receiver) = socket.split();
     user_peer_map.clone().lock().unwrap().insert(uid, s1);
     tokio::spawn(async move {
@@ -55,13 +55,12 @@ async fn handle_socket(s: Sender<event::MsgRequest>,  uid: u64, user_peer_map: U
     });
 }
 
-fn process_message(s: Sender<event::MsgRequest>, uid: u64, msg: Message, who: SocketAddr) -> ControlFlow<(), ()> {
+fn process_message(s: Sender<event::WsRequest>, uid: u64, msg: Message, who: SocketAddr) -> ControlFlow<(), ()> {
     match msg {
         Message::Text(t) => {
-            match serde_json::from_str::<event::MsgRequest>(&t) {
+            match serde_json::from_str::<event::WsRequest>(&t) {
                 Ok(mut msg) => {
                     println!(">>> {} sent message: {:?}", who,  msg);
-                    msg.from = Some(uid);
                     s.send(msg).map_err(|e| {
                         println!(">>> {} sent message error: {:#?}", who,  e.to_string());
                     }).unwrap();

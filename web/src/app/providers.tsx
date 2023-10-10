@@ -10,10 +10,10 @@ export function Providers({children}: { children: React.ReactNode }) {
     const ref = React.useRef(0)
     const [send, setSend] = React.useState<IWsContext>({});
     React.useLayoutEffect(() => {
-        if (!ref.current) {
             ref.current = 1
-            const {connection$} = initWs('1');
-            connection$.subscribe(
+            const {process$, connection$} = initWs('1');
+            let proSubscription = process$.subscribe();
+            let conSubscription = connection$.subscribe(
                 (message) => {
                     message$.next(message);
                 }
@@ -27,14 +27,9 @@ export function Providers({children}: { children: React.ReactNode }) {
                 }
             )
             return () => {
-                // console.log(3333)
-                // connection$.unsubscribe();
-                // connection$.complete();
+                proSubscription.unsubscribe();
+                conSubscription.unsubscribe();
             }
-
-        }
-
-
     }, [])
 
     return (

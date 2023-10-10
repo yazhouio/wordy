@@ -26,7 +26,7 @@ pub fn get_en_teacher_chat_message(msg: &str) -> Vec<ChatMessage> {
     vec![
         ChatMessage {
             role: Role::System,
-            content: "Suppose you are a kindergarten English starter teacher, I am going to ask you some simple words and ask you to say his English and give as much English explanation and example sentences as possible.".to_string(),
+            content: "Suppose you are a kindergarten English starter teacher, I am going to ask you some simple words and ask you to say his English and give as much English explanation and example sentences as possible，and mark the English portion with ``".to_string(),
             name: None,
         },
         ChatMessage {

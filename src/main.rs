@@ -144,8 +144,11 @@ async fn handle_system_message_item(msg: event::WsRequest, msg_id: String) -> Re
         event::Event::Chat(message) => {
             let openai_key = std::env::var("OPENAI_API_KEY").unwrap();
             let text = en_teacher_chat(&openai_key, &message).await?;
-            resp.event = event::Event::Chat(text.choices[0].message.content.to_owned());
+            let res = text.choices[0].message.content.to_owned();
+            // let res = "天空的英文是`sky`。它是指地球上大气层上方的空间，通常是呈现蓝色或灰色的。这是它的英文例句：1. `The sky is so clear today, not a single cloud in sight.` 2. `When the sun sets, the sky turns into a beautiful mixture of pink, purple, and orange colors.`".to_owned();
+            resp.event = event::Event::Chat(res);
             resp.event_type = event::EventType::Chat;
+
         }
         event::Event::Speech(message) => {
             let azure_tts_key = std::env::var("AZURE_TTS_KEY").unwrap();
@@ -153,6 +156,7 @@ async fn handle_system_message_item(msg: event::WsRequest, msg_id: String) -> Re
             let path = fetch_speed(&azure_tts_key, &region, &message).await?;
             resp.event = event::Event::Speech(path);
             resp.event_type = event::EventType::Speech;
+            resp.reply_msg_id = Some(msg.msg_id.clone());
         }
         _ => {
             return Err(anyhow::anyhow!("unknown event type"));

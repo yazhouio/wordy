@@ -34,6 +34,7 @@ pub struct WsRequest {
     pub event_type: EventType,
     #[serde(rename = "msgId")]
     pub msg_id: String,
+    #[serde(rename = "replyMsgId")]
     pub reply_msg_id: Option<String>,
 }
 

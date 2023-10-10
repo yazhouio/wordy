@@ -12,7 +12,7 @@ async fn text_to_speech(azure_api_key: &str, region: &str, msg: &str) -> Result<
     ).key(azure_api_key).build();
     let config = SynthesizerConfig::new(auth, AudioFormat::Audio16Khz32KBitRateMonoMp3);
     let options = TextOptionsBuilder::new() // Adjusting text options like rate, pitch and voice
-        // .rate("+20%")
+        .rate("-20%")
         .voice("zh-CN-XiaoxiaoNeural")
         .pitch("medium")
         .chain_rich_ssml_options_builder(

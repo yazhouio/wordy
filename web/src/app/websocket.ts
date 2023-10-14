@@ -53,10 +53,11 @@ export const initWs = (uid: string) => {
 
   const process$ = connection$.pipe(
       retry({
-        count: 5000,
+        count: 1000,
         resetOnSuccess: true,
         delay: (_, retryCount) => {
-          return timer((retryCount + 1) * 1000);
+          console.log(`retry attempt: ${retryCount + 1}`);
+          return timer((retryCount + 1) * 5000);
         }
       }),
   );

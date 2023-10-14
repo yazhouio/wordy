@@ -12,12 +12,11 @@ export function Providers({children}: { children: React.ReactNode }) {
     React.useLayoutEffect(() => {
             ref.current = 1
             const {process$, connection$} = initWs('1');
-            let proSubscription = process$.subscribe();
-            let conSubscription = connection$.subscribe(
+            let proSubscription = process$.subscribe(
                 (message) => {
                     message$.next(message);
                 }
-            )
+            );
             setSend(
                 {
                     send: (message: WsRequest) => {
@@ -28,7 +27,7 @@ export function Providers({children}: { children: React.ReactNode }) {
             )
             return () => {
                 proSubscription.unsubscribe();
-                conSubscription.unsubscribe();
+                // conSubscription.unsubscribe();
             }
     }, [])
 

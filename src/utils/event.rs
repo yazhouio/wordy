@@ -1,6 +1,8 @@
+use std::sync::Arc;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub enum Event {
     #[serde(rename = "chat")]
     Chat(String),
@@ -12,7 +14,7 @@ pub enum Event {
     ServerError(String),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum EventType {
     #[serde(rename = "chat")]
     Chat,
@@ -24,8 +26,7 @@ pub enum EventType {
     ServerError,
 }
 
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct WsRequest {
     pub from: u64,
     pub to: u64,
@@ -36,6 +37,12 @@ pub struct WsRequest {
     pub msg_id: String,
     #[serde(rename = "replyMsgId")]
     pub reply_msg_id: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct ChannelMessage {
+   pub uuid: Arc<Uuid>,
+   pub body: WsRequest
 }
 
 pub type  WsResponse = WsRequest;

@@ -1,5 +1,4 @@
 use anyhow::Result;
-use md5::Digest;
 use openai_dive::v1::api::Client;
 use openai_dive::v1::resources::chat_completion::{ChatCompletionParameters, ChatCompletionResponse, ChatMessage, Role};
 

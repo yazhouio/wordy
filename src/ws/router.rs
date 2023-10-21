@@ -1,6 +1,5 @@
 use std::{net::SocketAddr, ops::ControlFlow, sync::Arc};
 
-use crate::utils::event;
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -18,6 +17,7 @@ use tracing::info;
 use uuid::Uuid;
 
 use super::state::WsState;
+use crate::utils::event;
 
 pub fn router(state: Arc<WsState>) -> Router {
     Router::new().route("/", get(ws_handler)).with_state(state)
@@ -26,6 +26,10 @@ pub fn router(state: Arc<WsState>) -> Router {
 #[derive(Deserialize)]
 pub struct SubjectArgs {
     pub uid: u64,
+}
+
+pub fn insert(state: Arc<WsState>, uid: u64, uuid: Arc<Uuid>) {
+    state.insert_user_uuid_map(uid, uuid.clone());
 }
 
 pub async fn ws_handler(
@@ -42,12 +46,11 @@ pub async fn ws_handler(
     };
     info!("user {} {} connected from {}", uid, user_agent, addr);
     let uuid = Arc::new(Uuid::new_v4());
-    // insert_user_uuid_map(user_uuid_map, uid, uuid.clone());
-    state.insert_user_uuid_map(uid, uuid.clone());
-    ws.on_upgrade(move |socket| handle_socket(state.clone(), uuid, socket, addr))
+    ws.on_upgrade(move |socket| handle_socket(state.clone(),  uid, uuid, socket, addr))
 }
 
-async fn handle_socket(state: Arc<WsState>, uuid: Arc<Uuid>, socket: WebSocket, who: SocketAddr) {
+async fn handle_socket(state: Arc<WsState>, uid: u64, uuid: Arc<Uuid>, socket: WebSocket, who: SocketAddr) {
+    insert(state.clone(), uid, uuid.clone());
     let (s1, r1) = unbounded::<Arc<event::WsRequest>>();
     let (mut sender, mut receiver) = socket.split();
     state.insert_user_peer_map(uuid.clone(), s1);
@@ -61,6 +64,7 @@ async fn handle_socket(state: Arc<WsState>, uuid: Arc<Uuid>, socket: WebSocket, 
                 .unwrap();
         }
     });
+    let state = state.clone();
     tokio::spawn(async move {
         let state = state.clone();
         let mut cnt = 0;
@@ -106,6 +110,7 @@ fn process_message(
             } else {
                 info!(" {who} somehow sent close message without CloseFrame");
             }
+            drop(s);
             return ControlFlow::Break(());
         }
 
@@ -119,5 +124,6 @@ fn process_message(
             info!(" {who} sent ping with {v:?}");
         }
     }
+    drop(s);
     ControlFlow::Continue(())
 }

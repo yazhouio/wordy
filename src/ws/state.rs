@@ -1,13 +1,13 @@
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
+
 use flume::Sender;
 use uuid::Uuid;
-use std::{sync::{Arc, Mutex}, collections::HashMap};
-
-use crate::utils::event;
 
 use super::{UserPeerMap, UserUUidMap};
-
-
-
+use crate::utils::event;
 
 pub struct WsState {
     pub sender: Sender<event::ChannelMessage>,
@@ -31,10 +31,13 @@ impl WsState {
         } else {
             user_uuid_map.insert(uid, vec![uuid]);
         }
+        drop(user_uuid_map)
     }
 
     pub fn insert_user_peer_map(&self, uuid: Arc<Uuid>, sender: Sender<Arc<event::WsRequest>>) {
-        self.user_peer_map.lock().unwrap().insert(uuid, sender);
+        let mut map = self.user_peer_map.lock().unwrap();
+        map.insert(uuid, sender);
+        drop(map);
     }
 
     pub fn remove_user_peer_map(&self, uuid: Arc<Uuid>) {
@@ -57,11 +60,11 @@ impl WsState {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::*;
     use flume::unbounded;
+
+    use super::*;
 
     #[test]
     fn test_insert_user_uuid_map() {
@@ -117,6 +120,9 @@ mod tests {
         let uuid = Arc::new(Uuid::new_v4());
         let (sender, _) = unbounded();
         state.insert_user_peer_map(uuid.clone(), sender.clone());
-        assert_eq!(state.get_user_peer_map(uuid).unwrap().same_channel(&sender), true);
+        assert_eq!(
+            state.get_user_peer_map(uuid).unwrap().same_channel(&sender),
+            true
+        );
     }
 }

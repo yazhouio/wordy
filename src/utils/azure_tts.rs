@@ -1,12 +1,11 @@
+use std::{path::PathBuf, str};
+
 use anyhow::Result;
 use aspeak::{
     get_rest_endpoint_by_region, AudioFormat, AuthOptionsBuilder, RichSsmlOptionsBuilder,
     SynthesizerConfig, TextOptionsBuilder,
 };
 use blake2::{Blake2s256, Digest};
-use std::path::PathBuf;
-
-use std::str;
 use tokio::fs;
 
 pub struct TextConfigOptions {
@@ -17,7 +16,7 @@ pub struct TextConfigOptions {
 }
 
 impl TextConfigOptions {
-    pub fn new_cn()  -> Self {
+    pub fn new_cn() -> Self {
         TextConfigOptions {
             rate: String::from("-20%"),
             voice: String::from("zh-CN-XiaoxiaoNeural"),
@@ -25,6 +24,7 @@ impl TextConfigOptions {
             style: String::from("cheerful"),
         }
     }
+
     pub fn new_en() -> Self {
         TextConfigOptions {
             rate: String::from("-20%"),

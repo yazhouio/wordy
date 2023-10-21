@@ -1,4 +1,5 @@
 use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -41,8 +42,8 @@ pub struct WsRequest {
 
 #[derive(Debug)]
 pub struct ChannelMessage {
-   pub uuid: Arc<Uuid>,
-   pub body: WsRequest
+    pub uuid: Arc<Uuid>,
+    pub body: WsRequest,
 }
 
-pub type  WsResponse = WsRequest;
+pub type WsResponse = WsRequest;

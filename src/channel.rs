@@ -1,25 +1,22 @@
 #![feature(async_closure)]
 
-use std::net::SocketAddr;
-use std::sync::{Arc};
-use std::{path::PathBuf};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::{anyhow, Result};
-
 use axum::Router;
 use flume::{unbounded, Receiver, Sender};
-
-use tower_http::services::ServeDir;
-use tower_http::trace::{TraceLayer, DefaultMakeSpan};
-use tracing::{info, debug};
+use tower_http::{
+    services::ServeDir,
+    trace::{DefaultMakeSpan, TraceLayer},
+};
+use tracing::{debug, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
-use crate::utils::event;
-use crate::utils::azure_tts::fetch_speed;
-use crate::utils::event::WsResponse;
-use crate::ws;
-
+use crate::{
+    utils::{azure_tts::fetch_speed, event, event::WsResponse},
+    ws,
+};
 
 pub async fn handle_message(r: Receiver<event::ChannelMessage>, state: Arc<ws::state::WsState>) {
     loop {
@@ -29,7 +26,6 @@ pub async fn handle_message(r: Receiver<event::ChannelMessage>, state: Arc<ws::s
         }
     }
 }
-
 
 async fn handle_message_item(
     msg: event::ChannelMessage,
@@ -106,6 +102,7 @@ async fn handle_system_message(
             .unwrap();
         println!("{:#?}", resp);
         sender.clone().send(Arc::new(resp)).unwrap();
+        drop(sender);
     });
     Ok(())
 }
@@ -128,7 +125,11 @@ async fn handle_system_message_item(
             let openai_key = std::env::var("OPENAI_API_KEY").unwrap();
             // let text = en_teacher_chat(&openai_key, &message).await?;
             // let res = text.choices[0].message.content.to_owned();
-            let res = "天空的英文是`sky`。它是指地球上大气层上方的空间，通常是呈现蓝色或灰色的。这是它的英文例句：1. `The sky is so clear today, not a single cloud in sight.` 2. `When the sun sets, the sky turns into a beautiful mixture of pink, purple, and orange colors.`".to_owned();
+            let res = "天空的英文是`sky`。它是指地球上大气层上方的空间，通常是呈现蓝色或灰色的。\
+                       这是它的英文例句：1. `The sky is so clear today, not a single cloud in \
+                       sight.` 2. `When the sun sets, the sky turns into a beautiful mixture of \
+                       pink, purple, and orange colors.`"
+                .to_owned();
             resp.event = event::Event::Chat(res);
             resp.event_type = event::EventType::Chat;
         }

@@ -8,8 +8,8 @@ use axum::{
     routing::{post, get},
     Json, Router, response::IntoResponse, extract::Path,
 };
-use flume::{unbounded, Receiver, Sender};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use tokio::sync::mpsc;
 use tower_http::{
     cors::{AllowHeaders, AllowMethods, AllowOrigin, Any, CorsLayer},
     services::ServeDir,
@@ -42,10 +42,12 @@ async fn main() {
         .init();
 
     let assets_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
-    let (s, r) = unbounded::<event::ChannelMessage>();
+    let (s, mut r) = mpsc::unbounded_channel::<event::ChannelMessage>();
     let state = Arc::new(ws::state::WsState::new(s.clone()));
-
-    tokio::spawn(handle_message(r, state.clone()));
+    let state1 = state.clone();
+    tokio::spawn(async move {
+        handle_message(&mut r, state1).await;
+    });
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     info!("listening on {}", addr.to_string());
@@ -60,7 +62,7 @@ async fn main() {
         .nest("/ws", ws::router::router(state.clone()))
         .route("/api/login", post(handle_login))
         .route("/api/:user/salt", get(handle_client_salt))
-        // .layer(cors)
+        .layer(cors)
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),

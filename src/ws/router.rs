@@ -10,7 +10,8 @@ use axum::{
     routing::get,
     Router, TypedHeader,
 };
-use flume::{unbounded, Sender};
+// use flume::{unbounded, Sender};
+use tokio::sync::mpsc;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use tracing::info;
@@ -23,6 +24,7 @@ pub fn router(state: Arc<WsState>) -> Router {
     Router::new().route("/", get(ws_handler)).with_state(state)
 }
 
+type Sender<T> = mpsc::UnboundedSender<T>;
 #[derive(Deserialize)]
 pub struct SubjectArgs {
     pub uid: u64,
@@ -49,13 +51,17 @@ pub async fn ws_handler(
     ws.on_upgrade(move |socket| handle_socket(state.clone(),  uid, uuid, socket, addr))
 }
 
+fn insert_sender(state: Arc<WsState>, uuid: Arc<Uuid>, sender: Sender<Arc<event::WsRequest>>) {
+    state.insert_user_peer_map(uuid.clone(), sender);
+}
+
 async fn handle_socket(state: Arc<WsState>, uid: u64, uuid: Arc<Uuid>, socket: WebSocket, who: SocketAddr) {
     insert(state.clone(), uid, uuid.clone());
-    let (s1, r1) = unbounded::<Arc<event::WsRequest>>();
+    let (s1, mut r1) = mpsc::unbounded_channel::<Arc<event::WsRequest>>();
     let (mut sender, mut receiver) = socket.split();
-    state.insert_user_peer_map(uuid.clone(), s1);
+    insert_sender(state.clone(), uuid.clone(), s1);
     tokio::spawn(async move {
-        while let Ok(msg) = r1.recv() {
+        while let Some(msg) = r1.recv().await {
             sender
                 .send(Message::Text(
                     serde_json::to_string(&msg.clone().as_ref()).unwrap(),
@@ -67,18 +73,15 @@ async fn handle_socket(state: Arc<WsState>, uid: u64, uuid: Arc<Uuid>, socket: W
     let state = state.clone();
     tokio::spawn(async move {
         let state = state.clone();
-        let mut cnt = 0;
         while let Some(Ok(msg)) = receiver.next().await {
-            cnt += 1;
-            if process_message(state.sender.clone(), uuid.clone(), msg, who).is_break() {
+            if process_message(state.sender.clone(), uuid.clone(), msg, who).await.is_break() {
                 break;
             }
         }
-        cnt
     });
 }
 
-fn process_message(
+async fn process_message(
     s: Sender<event::ChannelMessage>,
     uuid: Arc<Uuid>,
     msg: Message,
@@ -110,7 +113,6 @@ fn process_message(
             } else {
                 info!(" {who} somehow sent close message without CloseFrame");
             }
-            drop(s);
             return ControlFlow::Break(());
         }
 
@@ -124,6 +126,5 @@ fn process_message(
             info!(" {who} sent ping with {v:?}");
         }
     }
-    drop(s);
     ControlFlow::Continue(())
 }

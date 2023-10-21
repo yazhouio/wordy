@@ -4,7 +4,7 @@ use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use axum::Router;
-use flume::{unbounded, Receiver, Sender};
+// use flume::{unbounded, Receiver};
 use tower_http::{
     services::ServeDir,
     trace::{DefaultMakeSpan, TraceLayer},
@@ -13,14 +13,17 @@ use tracing::{debug, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
+type Sender<T> = tokio::sync::mpsc::UnboundedSender<T>;
+type Receiver<T> = tokio::sync::mpsc::UnboundedReceiver<T>;
+
 use crate::{
     utils::{azure_tts::fetch_speed, event, event::WsResponse},
     ws,
 };
 
-pub async fn handle_message(r: Receiver<event::ChannelMessage>, state: Arc<ws::state::WsState>) {
+pub async fn handle_message(r:&mut Receiver<event::ChannelMessage>, state: Arc<ws::state::WsState>) {
     loop {
-        while let Ok(msg) = r.recv_async().await {
+        while let Some(msg) = r.recv().await {
             // println!("handle_message: {:?}", msg);
             handle_message_item(msg, state.clone()).await;
         }
@@ -102,7 +105,6 @@ async fn handle_system_message(
             .unwrap();
         println!("{:#?}", resp);
         sender.clone().send(Arc::new(resp)).unwrap();
-        drop(sender);
     });
     Ok(())
 }

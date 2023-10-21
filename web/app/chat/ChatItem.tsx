@@ -2,7 +2,8 @@
 import {PlayIcon} from "@/app/chat/PlayIcon";
 import {StopIcon} from "@/app/chat/StopIcon";
 import {EventType, WsRequest} from "@/app/interfaces";
-import {message$, WsContext} from "@/app/lib/websocket";
+import {WsContext} from "@/app/lib/websocket";
+import { message$ } from "@/app/lib/subjects";
 import {Accordion, AccordionItem, Avatar, Button, Card, CardBody} from "@nextui-org/react";
 import clsx from "clsx";
 import * as React from 'react'

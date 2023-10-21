@@ -1,10 +1,11 @@
 "use client"
 
 import ChatItem from "@/app/chat/ChatItem";
-import {Button, Card, CardBody, Input} from "@nextui-org/react";
-import * as React from 'react'
-import {chat$, chatList$, WsContext} from "@/app/websocket";
-import {EventType, WsRequest} from "@/app/interfaces";
+import { EventType, WsRequest } from "@/app/interfaces";
+import { chatList$ } from "@/app/lib/subjects";
+import { WsContext } from "@/app/lib/websocket";
+import { Button, Card, CardBody, Input } from "@nextui-org/react";
+import * as React from 'react';
 
 const Chat = () => {
   const {send} = React.useContext(WsContext);
@@ -13,7 +14,7 @@ const Chat = () => {
   React.useEffect(
       () => {
         const sub = chatList$.subscribe(
-            (list) => {
+            (list: any) => {
               console.log(list)
               setData(list)
             }

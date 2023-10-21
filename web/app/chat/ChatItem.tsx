@@ -2,7 +2,7 @@
 import {PlayIcon} from "@/app/chat/PlayIcon";
 import {StopIcon} from "@/app/chat/StopIcon";
 import {EventType, WsRequest} from "@/app/interfaces";
-import {message$, WsContext} from "@/app/websocket";
+import {message$, WsContext} from "@/app/lib/websocket";
 import {Accordion, AccordionItem, Avatar, Button, Card, CardBody} from "@nextui-org/react";
 import clsx from "clsx";
 import * as React from 'react'
@@ -16,8 +16,14 @@ interface ChatItemProps {
   msgId?: string,
 }
 
-const ActionButton = (props) => {
-  const {label, text, msgId} = props
+interface ActionButtonProps {
+    label: string,
+    text: string,
+    msgId?: string,
+}
+
+const ActionButton = (props: ActionButtonProps) => {
+  const {label, text, msgId = ''} = props
   const {send} = React.useContext(WsContext);
   const [loading$] = React.useState(new BehaviorSubject(false))
   const [isLoading, setIsLoading] = React.useState(loading$.getValue())

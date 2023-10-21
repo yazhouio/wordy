@@ -10,11 +10,15 @@
   },
   "dependencies": {
     "@nextui-org/react": "^2.1.13",
+    "argon2-browser": "^1.18.0",
+    "base64-loader": "^1.0.0",
     "clsx": "^2.0.0",
+    "cookies-next": "^4.0.0",
     "framer-motion": "^10.16.4",
     "next": "13.5.4",
     "react": "^18",
     "react-dom": "^18",
+    "react-hook-form": "^7.47.0",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {

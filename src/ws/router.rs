@@ -8,17 +8,21 @@ use axum::{
     headers,
     response::IntoResponse,
     routing::get,
-    Router, TypedHeader,
+    Router, TypedHeader, http::StatusCode,
 };
+use futures_util::{SinkExt, StreamExt};
+use jsonwebtoken::{Validation, Algorithm};
+use serde::Deserialize;
 // use flume::{unbounded, Sender};
 use tokio::sync::mpsc;
-use futures_util::{SinkExt, StreamExt};
-use serde::Deserialize;
 use tracing::info;
 use uuid::Uuid;
 
 use super::state::WsState;
-use crate::utils::event;
+use crate::{
+    auth::{self, jwt, JWTData},
+    utils::event,
+};
 
 pub fn router(state: Arc<WsState>) -> Router {
     Router::new().route("/", get(ws_handler)).with_state(state)
@@ -27,20 +31,27 @@ pub fn router(state: Arc<WsState>) -> Router {
 type Sender<T> = mpsc::UnboundedSender<T>;
 #[derive(Deserialize)]
 pub struct SubjectArgs {
-    pub uid: u64,
+    #[serde(rename = "accessToken")]
+    pub access_token: String,
 }
 
 pub fn insert(state: Arc<WsState>, uid: u64, uuid: Arc<Uuid>) {
     state.insert_user_uuid_map(uid, uuid.clone());
 }
 
+
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<WsState>>,
-    Query(SubjectArgs { uid }): Query<SubjectArgs>,
+    Query(SubjectArgs { access_token }): Query<SubjectArgs>,
     user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
+    let user = jsonwebtoken::decode::<JWTData>(&access_token, &jwt::KEYS.decoding, &Validation::new(Algorithm::HS256));
+    if user.is_err() {
+        return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
+    }
+    let uid = user.unwrap().claims.id;
     let user_agent = if let Some(TypedHeader(user_agent)) = user_agent {
         user_agent.to_string()
     } else {
@@ -48,14 +59,20 @@ pub async fn ws_handler(
     };
     info!("user {} {} connected from {}", uid, user_agent, addr);
     let uuid = Arc::new(Uuid::new_v4());
-    ws.on_upgrade(move |socket| handle_socket(state.clone(),  uid, uuid, socket, addr))
+    ws.on_upgrade(move |socket| handle_socket(state.clone(), uid, uuid, socket, addr))
 }
 
 fn insert_sender(state: Arc<WsState>, uuid: Arc<Uuid>, sender: Sender<Arc<event::WsRequest>>) {
     state.insert_user_peer_map(uuid.clone(), sender);
 }
 
-async fn handle_socket(state: Arc<WsState>, uid: u64, uuid: Arc<Uuid>, socket: WebSocket, who: SocketAddr) {
+async fn handle_socket(
+    state: Arc<WsState>,
+    uid: u64,
+    uuid: Arc<Uuid>,
+    socket: WebSocket,
+    who: SocketAddr,
+) {
     insert(state.clone(), uid, uuid.clone());
     let (s1, mut r1) = mpsc::unbounded_channel::<Arc<event::WsRequest>>();
     let (mut sender, mut receiver) = socket.split();
@@ -74,7 +91,10 @@ async fn handle_socket(state: Arc<WsState>, uid: u64, uuid: Arc<Uuid>, socket: W
     tokio::spawn(async move {
         let state = state.clone();
         while let Some(Ok(msg)) = receiver.next().await {
-            if process_message(state.sender.clone(), uuid.clone(), msg, who).await.is_break() {
+            if process_message(state.sender.clone(), uuid.clone(), msg, who)
+                .await
+                .is_break()
+            {
                 break;
             }
         }

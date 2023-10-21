@@ -7,7 +7,7 @@ use blake2::{Blake2b512, Digest};
 use jsonwebtoken::{decode, encode, Header, Validation};
 use serde::{Deserialize, Serialize};
 
-mod jwt;
+pub mod jwt;
 
 const ACCESS_TOKEN_EXPIRE: i64 = 60 * 60;
 const REFRESH_TOKEN_EXPIRE: i64 = 60 * 60 * 24 * 7;
@@ -38,15 +38,15 @@ pub struct JWTToken {
 pub struct JWTData {
     pub name: String,
     pub id: u64,
-    pub iat: i64,
+    pub exp: i64,
 }
 
 pub fn add_salt(password: &str, salt: &str) -> Option<String> {
     let salt = salt.split('-').collect::<Vec<_>>();
-    if salt.len() != 4 {
+    if salt.len() != 5 {
         return None;
     }
-    Some(format!("{}{}{}{}", salt[0], salt[2], password, salt[3]))
+    Some(format!("{}-{}-{}-{}-{}-{}", salt[0], salt[1], salt[2], salt[3], password, salt[4]))
 }
 
 pub fn hash(msg: &str) -> String {
@@ -70,7 +70,7 @@ impl Auth {
         let db_id = std::env::var("CLIENT_ID").unwrap();
         let db_password = std::env::var("CLIENT_PASSWORD").unwrap();
         let db_client_salt = std::env::var("CLIENT_PASSWORD_SALT").unwrap();
-        let db_server_salt = std::env::var("SERVER_PADDWORD_SALT").unwrap();
+        let db_server_salt = std::env::var("SERVER_PASSWORD_SALT").unwrap();
         Ok(Self::new(name, db_id.parse::<u64>().unwrap(), db_password, db_client_salt, db_server_salt))
     }
 
@@ -80,7 +80,7 @@ impl Auth {
                 tracing::error!("validate_token error: {:?}", e);
                 anyhow!(e)
             })?;
-        if token_data.claims.iat < chrono::Utc::now().timestamp()
+        if token_data.claims.exp < chrono::Utc::now().timestamp()
         {
             return Err(anyhow!("access token expired"));
         };
@@ -95,7 +95,7 @@ impl Auth {
                     anyhow!(e)
                 },
             )?;
-        if token_data.claims.iat < chrono::Utc::now().timestamp() {
+        if token_data.claims.exp < chrono::Utc::now().timestamp() {
             return Err(anyhow!("refresh token expired"));
         }
         Auth::new_by_name(token_data.claims.name)
@@ -114,18 +114,18 @@ impl Auth {
             JWTData {
                 name: self.name.clone(),
                 id: self.id,
-                iat: chrono::Utc::now().timestamp() + ACCESS_TOKEN_EXPIRE,
+                exp: chrono::Utc::now().timestamp() + ACCESS_TOKEN_EXPIRE,
             },
             JWTData {
                 name: self.name.clone(),
                 id: self.id,
-                iat: chrono::Utc::now().timestamp() + REFRESH_TOKEN_EXPIRE,
+                exp: chrono::Utc::now().timestamp() + REFRESH_TOKEN_EXPIRE,
             },
         )
     }
 
     pub fn check(&self, name: &str, password: &str) -> bool {
-        let salt = std::env::var("SERVER_PADDWORD_SALT").unwrap();
+        let salt = std::env::var("SERVER_PASSWORD_SALT").unwrap();
         let db_name = &self.name;
         let db_password = &self.password;
         let password = add_salt(password, &salt);

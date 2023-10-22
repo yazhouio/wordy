@@ -44,7 +44,7 @@ async fn main() {
         handle_message(&mut r, state1).await;
     });
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("listening on {}", addr.to_string());
 
     let cors = CorsLayer::new()

@@ -46,7 +46,10 @@ pub fn add_salt(password: &str, salt: &str) -> Option<String> {
     if salt.len() != 5 {
         return None;
     }
-    Some(format!("{}-{}-{}-{}-{}-{}", salt[0], salt[1], salt[2], salt[3], password, salt[4]))
+    Some(format!(
+        "{}-{}-{}-{}-{}-{}",
+        salt[0], salt[1], salt[2], salt[3], password, salt[4]
+    ))
 }
 
 pub fn hash(msg: &str) -> String {
@@ -57,8 +60,20 @@ pub fn hash(msg: &str) -> String {
 }
 
 impl Auth {
-    pub fn new(name: String, id: u64, password: String, client_salt: String, server_salt: String) -> Self {
-        Self { name, id, password , client_salt, server_salt }
+    pub fn new(
+        name: String,
+        id: u64,
+        password: String,
+        client_salt: String,
+        server_salt: String,
+    ) -> Self {
+        Self {
+            name,
+            id,
+            password,
+            client_salt,
+            server_salt,
+        }
     }
 
     pub fn new_by_name(name: String) -> Result<Self> {
@@ -66,12 +81,18 @@ impl Auth {
         if name != db_name {
             return Err(anyhow!("user not found"));
         }
-        
+
         let db_id = std::env::var("CLIENT_ID").unwrap();
         let db_password = std::env::var("CLIENT_PASSWORD").unwrap();
         let db_client_salt = std::env::var("CLIENT_PASSWORD_SALT").unwrap();
         let db_server_salt = std::env::var("SERVER_PASSWORD_SALT").unwrap();
-        Ok(Self::new(name, db_id.parse::<u64>().unwrap(), db_password, db_client_salt, db_server_salt))
+        Ok(Self::new(
+            name,
+            db_id.parse::<u64>().unwrap(),
+            db_password,
+            db_client_salt,
+            db_server_salt,
+        ))
     }
 
     pub fn from_access_token(token: &str) -> Result<Self> {
@@ -80,8 +101,7 @@ impl Auth {
                 tracing::error!("validate_token error: {:?}", e);
                 anyhow!(e)
             })?;
-        if token_data.claims.exp < chrono::Utc::now().timestamp()
-        {
+        if token_data.claims.exp < chrono::Utc::now().timestamp() {
             return Err(anyhow!("access token expired"));
         };
         Auth::new_by_name(token_data.claims.name)

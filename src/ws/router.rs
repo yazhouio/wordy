@@ -6,12 +6,13 @@ use axum::{
         ConnectInfo, Query, State, WebSocketUpgrade,
     },
     headers,
+    http::StatusCode,
     response::IntoResponse,
     routing::get,
-    Router, TypedHeader, http::StatusCode,
+    Router, TypedHeader,
 };
 use futures_util::{SinkExt, StreamExt};
-use jsonwebtoken::{Validation, Algorithm};
+use jsonwebtoken::{Algorithm, Validation};
 use serde::Deserialize;
 // use flume::{unbounded, Sender};
 use tokio::sync::mpsc;
@@ -39,7 +40,6 @@ pub fn insert(state: Arc<WsState>, uid: u64, uuid: Arc<Uuid>) {
     state.insert_user_uuid_map(uid, uuid.clone());
 }
 
-
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<WsState>>,
@@ -47,7 +47,11 @@ pub async fn ws_handler(
     user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
-    let user = jsonwebtoken::decode::<JWTData>(&access_token, &jwt::KEYS.decoding, &Validation::new(Algorithm::HS256));
+    let user = jsonwebtoken::decode::<JWTData>(
+        &access_token,
+        &jwt::KEYS.decoding,
+        &Validation::new(Algorithm::HS256),
+    );
     if user.is_err() {
         return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
     }

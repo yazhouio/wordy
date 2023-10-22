@@ -36,7 +36,10 @@ impl WsState {
     }
 
     pub fn insert_user_peer_map(&self, uuid: Arc<Uuid>, sender: Sender<Arc<event::WsRequest>>) {
-        let mut map = self.user_peer_map.lock().expect("lock user_peer_map failed");
+        let mut map = self
+            .user_peer_map
+            .lock()
+            .expect("lock user_peer_map failed");
         map.insert(uuid, sender.clone());
     }
 

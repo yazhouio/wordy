@@ -21,7 +21,10 @@ use crate::{
     ws,
 };
 
-pub async fn handle_message(r:&mut Receiver<event::ChannelMessage>, state: Arc<ws::state::WsState>) {
+pub async fn handle_message(
+    r: &mut Receiver<event::ChannelMessage>,
+    state: Arc<ws::state::WsState>,
+) {
     loop {
         while let Some(msg) = r.recv().await {
             // println!("handle_message: {:?}", msg);

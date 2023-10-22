@@ -1,11 +1,12 @@
-
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use axum::{
+    extract::Path,
     http::{self, StatusCode},
-    routing::{post, get},
-    Json, Router, response::IntoResponse, extract::Path,
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tokio::sync::mpsc;
@@ -73,24 +74,24 @@ async fn main() {
         .unwrap();
 }
 
-async fn handle_login(
-    req: axum::Json<auth::LoginRequest>,
-) -> impl IntoResponse {
+async fn handle_login(req: axum::Json<auth::LoginRequest>) -> impl IntoResponse {
     info!("login request: {:?}", req);
     let db_user = auth::Auth::new_by_name(req.name.to_owned());
     if db_user.is_err() {
         return (
             StatusCode::UNAUTHORIZED,
-            "Unauthorized: invalid username or password"
-        ).into_response();
+            "Unauthorized: invalid username or password",
+        )
+            .into_response();
     }
     let resp = db_user.unwrap().login(&req.name, &req.password);
     match resp {
         Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
         Err(_) => (
             StatusCode::UNAUTHORIZED,
-            "Unauthorized: invalid username or password"
-        ).into_response(),
+            "Unauthorized: invalid username or password",
+        )
+            .into_response(),
     }
 }
 
@@ -99,21 +100,18 @@ struct ClientSaltRequest {
     salt: String,
 }
 
-async fn handle_client_salt(
-    Path(name): Path<String>,
-) -> Json<ClientSaltRequest> {
+async fn handle_client_salt(Path(name): Path<String>) -> Json<ClientSaltRequest> {
     info!("client salt request: {:?}", name);
-    let salt =  match auth::Auth::new_by_name(name.to_owned()) {
+    let salt = match auth::Auth::new_by_name(name.to_owned()) {
         Ok(db_user) => db_user.client_salt,
-        Err(_) =>  {
-        let rand_string: String = thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(30)
-        .map(char::from)
-        .collect();
-        rand_string
+        Err(_) => {
+            let rand_string: String = thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(30)
+                .map(char::from)
+                .collect();
+            rand_string
         }
     };
     Json(ClientSaltRequest { salt })
 }
-

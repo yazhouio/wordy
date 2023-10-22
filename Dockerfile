@@ -7,5 +7,5 @@ RUN apt-get update && \
 
 FROM gcr.io/distroless/cc
 
-COPY from=build-env /app/target/release/chat-ws /
+COPY --from=build-env /app/target/release/chat-ws /
 CMD ["./chat-ws"]

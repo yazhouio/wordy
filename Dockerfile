@@ -4,6 +4,7 @@ COPY . /app
 RUN cargo build --release
 
 FROM --platform=linux/amd64 gcr.io/distroless/cc
-RUN apt-get install openssl
+RUN apt update && apt upgrade
+RUN apt install -y openssl
 COPY --from=build-env /app/target/release/chat-ws /
 CMD ["./chat-ws"]

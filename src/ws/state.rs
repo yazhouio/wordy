@@ -3,7 +3,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-// use flume::Sender;
 use uuid::Uuid;
 
 use super::{UserPeerMap, UserUUidMap};
@@ -43,10 +42,12 @@ impl WsState {
         map.insert(uuid, sender.clone());
     }
 
+    #[allow(dead_code)]
     pub fn remove_user_peer_map(&self, uuid: Arc<Uuid>) {
         self.user_peer_map.lock().unwrap().remove(&uuid);
     }
 
+    #[allow(dead_code)]
     pub fn remove_user_uuid_map(&self, uid: u64, uuid: Arc<Uuid>) {
         let mut user_uuid_map = self.user_uuid_map.lock().unwrap();
         if let Some(uuids) = user_uuid_map.get_mut(&uid) {

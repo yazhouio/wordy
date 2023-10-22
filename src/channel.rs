@@ -1,9 +1,7 @@
-#![feature(async_closure)]
 
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-// use flume::{unbounded, Receiver};
 use tracing::info;
 use uuid::Uuid;
 
@@ -11,7 +9,7 @@ type Sender<T> = tokio::sync::mpsc::UnboundedSender<T>;
 type Receiver<T> = tokio::sync::mpsc::UnboundedReceiver<T>;
 
 use crate::{
-    utils::{azure_tts::fetch_speed, event, event::WsResponse},
+    utils::{azure_tts::fetch_speed, event, event::WsResponse, openai::en_teacher_chat},
     ws,
 };
 
@@ -120,15 +118,15 @@ async fn handle_system_message_item(
         reply_msg_id: None,
     };
     match msg.event.clone() {
-        event::Event::Chat(_message) => {
-            let _openai_key = std::env::var("OPENAI_API_KEY").unwrap();
-            // let text = en_teacher_chat(&openai_key, &message).await?;
-            // let res = text.choices[0].message.content.to_owned();
-            let res = "天空的英文是`sky`。它是指地球上大气层上方的空间，通常是呈现蓝色或灰色的。\
-                       这是它的英文例句：1. `The sky is so clear today, not a single cloud in \
-                       sight.` 2. `When the sun sets, the sky turns into a beautiful mixture of \
-                       pink, purple, and orange colors.`"
-                .to_owned();
+        event::Event::Chat(message) => {
+            let openai_key = std::env::var("OPENAI_API_KEY").unwrap();
+            let text = en_teacher_chat(&openai_key, &message).await?;
+            let res = text.choices[0].message.content.to_owned();
+            // let res = "天空的英文是`sky`。它是指地球上大气层上方的空间，通常是呈现蓝色或灰色的。\
+                    //    这是它的英文例句：1. `The sky is so clear today, not a single cloud in \
+                    //    sight.` 2. `When the sun sets, the sky turns into a beautiful mixture of \
+                    //    pink, purple, and orange colors.`"
+                // .to_owned();
             resp.event = event::Event::Chat(res);
             resp.event_type = event::EventType::Chat;
         }

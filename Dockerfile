@@ -3,6 +3,6 @@ WORKDIR /app
 COPY . /app
 RUN cargo build --release
 
-FROM gcr.io/distroless/cc
+FROM gcr.io/distroless/base
 COPY --from=build-env /app/target/release/chat-ws /
 CMD ["./chat-ws"]

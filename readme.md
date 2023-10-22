@@ -3,8 +3,11 @@
 ### 2. 可选择例句，由 azure tts 生成语音。
 
 ### TODO
+
 * 前端
-[ ] access token 刷新
+  
+- [ ] access token 刷新
 
 * 后端
-[ ] 接口鉴权
+  
+- [ ] 接口鉴权

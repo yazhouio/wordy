@@ -1,9 +1,8 @@
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
-use anyhow::{anyhow, Result};
 use axum::{
     extract::Path,
-    http::{self, StatusCode},
+    http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
@@ -11,19 +10,15 @@ use axum::{
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tokio::sync::mpsc;
 use tower_http::{
-    cors::{AllowHeaders, AllowMethods, AllowOrigin, Any, CorsLayer},
+    cors::{Any, CorsLayer},
     services::ServeDir,
     trace::{DefaultMakeSpan, TraceLayer},
 };
-use tracing::{debug, info};
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utils::event;
-use uuid::Uuid;
 
-use crate::{
-    channel::handle_message,
-    utils::{azure_tts::fetch_speed, event::WsResponse},
-};
+use crate::channel::handle_message;
 
 mod auth;
 mod channel;

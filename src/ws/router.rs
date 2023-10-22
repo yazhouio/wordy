@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use super::state::WsState;
 use crate::{
-    auth::{self, jwt, JWTData},
+    auth::{jwt, JWTData},
     utils::event,
 };
 
@@ -113,7 +113,7 @@ async fn process_message(
 ) -> ControlFlow<(), ()> {
     match msg {
         Message::Text(t) => match serde_json::from_str::<event::WsRequest>(&t) {
-            Ok(mut msg) => {
+            Ok(msg) => {
                 info!(" {} sent message: {:?}", who, msg);
                 s.send(event::ChannelMessage { uuid, body: msg })
                     .map_err(|e| {
@@ -121,7 +121,7 @@ async fn process_message(
                     })
                     .unwrap();
             }
-            Err(e) => {
+            Err(_e) => {
                 info!(" {} sent unknown message: {:?}", who, t);
             }
         },

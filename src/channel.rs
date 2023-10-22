@@ -1,16 +1,10 @@
 #![feature(async_closure)]
 
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use axum::Router;
 // use flume::{unbounded, Receiver};
-use tower_http::{
-    services::ServeDir,
-    trace::{DefaultMakeSpan, TraceLayer},
-};
-use tracing::{debug, info};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing::info;
 use uuid::Uuid;
 
 type Sender<T> = tokio::sync::mpsc::UnboundedSender<T>;
@@ -126,8 +120,8 @@ async fn handle_system_message_item(
         reply_msg_id: None,
     };
     match msg.event.clone() {
-        event::Event::Chat(message) => {
-            let openai_key = std::env::var("OPENAI_API_KEY").unwrap();
+        event::Event::Chat(_message) => {
+            let _openai_key = std::env::var("OPENAI_API_KEY").unwrap();
             // let text = en_teacher_chat(&openai_key, &message).await?;
             // let res = text.choices[0].message.content.to_owned();
             let res = "天空的英文是`sky`。它是指地球上大气层上方的空间，通常是呈现蓝色或灰色的。\

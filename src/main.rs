@@ -1,4 +1,3 @@
-#![feature(async_closure)]
 
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 

@@ -3,20 +3,20 @@ use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, collections::HashMap};
 use anyhow::anyhow;
 use axum::{
     extract::{
-        ws::{Message, WebSocket, rejection::{WebSocketUpgradeRejection, self}},
+        ws::{Message, WebSocket, rejection::{WebSocketUpgradeRejection, self}, CloseFrame},
         ConnectInfo, Query, State, WebSocketUpgrade,
     },
     headers,
-    http::StatusCode,
+    http::{StatusCode},
     response::{IntoResponse, Response},
     routing::{any, get},
-    Router, TypedHeader,
+    Router, TypedHeader, body::Empty,
 };
 use futures_util::{SinkExt, StreamExt};
 use jsonwebtoken::{Algorithm, Validation};
 use serde::Deserialize;
 // use flume::{unbounded, Sender};
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc};
 use tracing::{debug, info};
 use uuid::Uuid;
 
@@ -55,8 +55,9 @@ pub async fn ws_handler(
     user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
+    info!("ws_handler query: {:?}", query);
     if (!query.contains_key("accessToken")) {
-        return (StatusCode::BAD_REQUEST, "Bad Request").into_response();
+        return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
     }
     let access_token = query.get("accessToken").unwrap();
     debug!("ws_handler token: {}", access_token);
@@ -66,7 +67,7 @@ pub async fn ws_handler(
         &Validation::new(Algorithm::HS256),
     );
     if user.is_err() {
-        // info!("user {} unauthorized", addr);
+        info!("user {} unauthorized", addr);
         return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
     };
     let uid = user.unwrap().claims.id;
@@ -92,9 +93,16 @@ async fn handle_socket(
     who: SocketAddr,
 ) {
     // socket.close().await.unwrap();
+    let (mut sender, mut receiver) = socket.split();
+    sender.send(Message::Close(
+        Some(CloseFrame {
+            code: 403,
+            reason: "Forbidden".into(),
+        }),
+    )).await.unwrap();
+    // socket.close().await.unwrap();
     insert(state.clone(), uid, uuid.clone());
     let (s1, mut r1) = mpsc::unbounded_channel::<Arc<event::WsRequest>>();
-    let (mut sender, mut receiver) = socket.split();
     insert_sender(state.clone(), uuid.clone(), s1);
     tokio::spawn(async move {
         while let Some(msg) = r1.recv().await {

@@ -94,12 +94,12 @@ async fn handle_socket(
 ) {
     // socket.close().await.unwrap();
     let (mut sender, mut receiver) = socket.split();
-    sender.send(Message::Close(
-        Some(CloseFrame {
-            code: 403,
-            reason: "Forbidden".into(),
-        }),
-    )).await.unwrap();
+    // sender.send(Message::Close(
+    //     Some(CloseFrame {
+    //         code: 403,
+    //         reason: "Forbidden".into(),
+    //     }),
+    // )).await.unwrap();
     // socket.close().await.unwrap();
     insert(state.clone(), uid, uuid.clone());
     let (s1, mut r1) = mpsc::unbounded_channel::<Arc<event::WsRequest>>();

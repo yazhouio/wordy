@@ -26,7 +26,7 @@ mod utils;
 mod ws;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), anyhow::Error> {
     dotenv::dotenv().ok();
     tracing_subscriber::registry()
         .with(
@@ -65,8 +65,8 @@ async fn main() {
 
     axum::Server::bind(&addr)
         .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-        .await
-        .unwrap();
+        .await?;
+    anyhow::Ok(())
 }
 
 async fn handle_login(req: axum::Json<auth::LoginRequest>) -> impl IntoResponse {

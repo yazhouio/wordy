@@ -1,14 +1,15 @@
-use std::{net::SocketAddr, ops::ControlFlow, sync::Arc};
+use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, collections::HashMap};
 
+use anyhow::anyhow;
 use axum::{
     extract::{
-        ws::{Message, WebSocket},
+        ws::{Message, WebSocket, rejection::{WebSocketUpgradeRejection, self}},
         ConnectInfo, Query, State, WebSocketUpgrade,
     },
     headers,
     http::StatusCode,
-    response::IntoResponse,
-    routing::get,
+    response::{IntoResponse, Response},
+    routing::{any, get},
     Router, TypedHeader,
 };
 use futures_util::{SinkExt, StreamExt};
@@ -16,7 +17,7 @@ use jsonwebtoken::{Algorithm, Validation};
 use serde::Deserialize;
 // use flume::{unbounded, Sender};
 use tokio::sync::mpsc;
-use tracing::info;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 use super::state::WsState;
@@ -26,7 +27,14 @@ use crate::{
 };
 
 pub fn router(state: Arc<WsState>) -> Router {
-    Router::new().route("/", get(ws_handler)).with_state(state)
+    Router::new()
+        .route("/", get(ws_handler))
+        .with_state(state)
+        .fallback(any(handler404))
+}
+
+pub async fn handler404() -> impl IntoResponse {
+    (StatusCode::NOT_FOUND, "404 Not Found").into_response()
 }
 
 type Sender<T> = mpsc::UnboundedSender<T>;
@@ -43,18 +51,24 @@ pub fn insert(state: Arc<WsState>, uid: u64, uuid: Arc<Uuid>) {
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<WsState>>,
-    Query(SubjectArgs { access_token }): Query<SubjectArgs>,
+    Query(query): Query<HashMap<String, String>>,
     user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
+    if (!query.contains_key("accessToken")) {
+        return (StatusCode::BAD_REQUEST, "Bad Request").into_response();
+    }
+    let access_token = query.get("accessToken").unwrap();
+    debug!("ws_handler token: {}", access_token);
     let user = jsonwebtoken::decode::<JWTData>(
         &access_token,
         &jwt::KEYS.decoding,
         &Validation::new(Algorithm::HS256),
     );
     if user.is_err() {
+        // info!("user {} unauthorized", addr);
         return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
-    }
+    };
     let uid = user.unwrap().claims.id;
     let user_agent = if let Some(TypedHeader(user_agent)) = user_agent {
         user_agent.to_string()
@@ -77,6 +91,7 @@ async fn handle_socket(
     socket: WebSocket,
     who: SocketAddr,
 ) {
+    // socket.close().await.unwrap();
     insert(state.clone(), uid, uuid.clone());
     let (s1, mut r1) = mpsc::unbounded_channel::<Arc<event::WsRequest>>();
     let (mut sender, mut receiver) = socket.split();

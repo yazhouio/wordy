@@ -54,24 +54,26 @@ async fn handle_message_item(
         let msg = Arc::new(msg.body.clone());
         tokio::spawn(async move {
             let msg = msg.clone();
-            match msg.to {
+             match msg.to {
                 0 => {
                     handle_system_message(msg, msg_id.clone(), &sender)
                         .await
                         .map_err(|e| {
                             tracing::error!("handle_system_message error: {:?}", e);
                             anyhow!("handle_system_message error: {:?}", e)
-                        })
-                        .unwrap();
+                        })?;
                 }
                 _ => {
-                    sender.send(msg).unwrap();
+                    sender.send(msg).map_err(|e| {
+                        tracing::error!("handle_system_message error: {:?}", e);
+                        anyhow!("handle_system_message error: {:?}", e)
+                    })?;
                 }
             };
-            // Ok(())
+            anyhow::Ok(())
         });
     }
-    Ok(())
+    anyhow::Ok(())
 }
 
 async fn handle_system_message(
@@ -87,7 +89,7 @@ async fn handle_system_message(
         to: msg.from,
         reply_msg_id: Some(msg.msg_id.clone()),
     };
-    sender.send(Arc::new(resp)).unwrap();
+    sender.send(Arc::new(resp))?;
     let sender = sender.clone();
     let msg_id = msg_id.clone().to_string();
     tokio::spawn(async move {
@@ -96,10 +98,15 @@ async fn handle_system_message(
             .map_err(|e| {
                 tracing::error!("handle_system_message_item error: {:?}", e);
                 anyhow!(e)
-            })
-            .unwrap();
+            })?;
         println!("{:#?}", resp);
-        sender.clone().send(Arc::new(resp)).unwrap();
+        sender.clone().send(Arc::new(resp)).map_err(
+          |e| {
+            tracing::error!("handle_system_message_item error: {:?}", e);
+            anyhow!(e)
+          }
+        )?;
+        anyhow::Ok(())
     });
     Ok(())
 }
@@ -119,7 +126,7 @@ async fn handle_system_message_item(
     };
     match msg.event.clone() {
         event::Event::Chat(message) => {
-            let openai_key = std::env::var("OPENAI_API_KEY").unwrap();
+            let openai_key = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not found");
             let text = en_teacher_chat(&openai_key, &message).await?;
             let res = text.choices[0].message.content.to_owned();
             // let res = "天空的英文是`sky`。它是指地球上大气层上方的空间，通常是呈现蓝色或灰色的。\
@@ -131,8 +138,8 @@ async fn handle_system_message_item(
             resp.event_type = event::EventType::Chat;
         }
         event::Event::Speech(message) => {
-            let azure_tts_key = std::env::var("AZURE_TTS_KEY").unwrap();
-            let region = std::env::var("AZURE_TTS_REGION").unwrap();
+            let azure_tts_key = std::env::var("AZURE_TTS_KEY").expect("AZURE_TTS_KEY not found");
+            let region = std::env::var("AZURE_TTS_REGION").expect("AZURE_TTS_REGION not found");
             let path = fetch_speed(&azure_tts_key, &region, &message).await?;
             resp.event = event::Event::Speech(path);
             resp.event_type = event::EventType::Speech;

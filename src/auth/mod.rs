@@ -77,15 +77,15 @@ impl Auth {
     }
 
     pub fn new_by_name(name: String) -> Result<Self> {
-        let db_name = std::env::var("CLIENT_NAME").unwrap();
+        let db_name = std::env::var("CLIENT_NAME").expect("CLIENT_NAME not found");
         if name != db_name {
             return Err(anyhow!("user not found"));
         }
 
-        let db_id = std::env::var("CLIENT_ID").unwrap();
-        let db_password = std::env::var("CLIENT_PASSWORD").unwrap();
-        let db_client_salt = std::env::var("CLIENT_PASSWORD_SALT").unwrap();
-        let db_server_salt = std::env::var("SERVER_PASSWORD_SALT").unwrap();
+        let db_id = std::env::var("CLIENT_ID").expect("CLIENT_ID not found");
+        let db_password = std::env::var("CLIENT_PASSWORD").expect("CLIENT_PASSWORD not found");
+        let db_client_salt = std::env::var("CLIENT_PASSWORD_SALT").expect("CLIENT_PASSWORD_SALT not found");
+        let db_server_salt = std::env::var("SERVER_PASSWORD_SALT").expect("SERVER_PASSWORD_SALT not found");
         Ok(Self::new(
             name,
             db_id.parse::<u64>().unwrap(),
@@ -145,7 +145,7 @@ impl Auth {
     }
 
     pub fn check(&self, name: &str, password: &str) -> bool {
-        let salt = std::env::var("SERVER_PASSWORD_SALT").unwrap();
+        let salt = std::env::var("SERVER_PASSWORD_SALT").expect("SERVER_PASSWORD_SALT not found");
         let db_name = &self.name;
         let db_password = &self.password;
         let password = add_salt(password, &salt);

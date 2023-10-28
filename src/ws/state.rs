@@ -39,7 +39,7 @@ impl WsState {
             .user_peer_map
             .lock()
             .expect("lock user_peer_map failed");
-        map.insert(uuid, sender.clone());
+        map.insert(uuid, sender);
     }
 
     #[allow(dead_code)]

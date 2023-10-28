@@ -1,22 +1,22 @@
 use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, collections::HashMap};
 
-use anyhow::anyhow;
+
 use axum::{
     extract::{
-        ws::{Message, WebSocket, rejection::{WebSocketUpgradeRejection, self}, CloseFrame},
+        ws::{Message, WebSocket},
         ConnectInfo, Query, State, WebSocketUpgrade,
     },
     headers,
-    http::{StatusCode},
-    response::{IntoResponse, Response},
+    http::StatusCode,
+    response::IntoResponse,
     routing::{any, get},
-    Router, TypedHeader, body::Empty,
+    Router, TypedHeader,
 };
 use futures_util::{SinkExt, StreamExt};
 use jsonwebtoken::{Algorithm, Validation};
 use serde::Deserialize;
 // use flume::{unbounded, Sender};
-use tokio::{sync::mpsc};
+use tokio::sync::mpsc;
 use tracing::{debug, info};
 use uuid::Uuid;
 
@@ -45,7 +45,7 @@ pub struct SubjectArgs {
 }
 
 pub fn insert(state: Arc<WsState>, uid: u64, uuid: Arc<Uuid>) {
-    state.insert_user_uuid_map(uid, uuid.clone());
+    state.insert_user_uuid_map(uid, uuid);
 }
 
 pub async fn ws_handler(
@@ -56,13 +56,13 @@ pub async fn ws_handler(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
     info!("ws_handler query: {:?}", query);
-    if (!query.contains_key("accessToken")) {
+    if !query.contains_key("accessToken") {
         return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
     }
     let access_token = query.get("accessToken").unwrap();
     debug!("ws_handler token: {}", access_token);
     let user = jsonwebtoken::decode::<JWTData>(
-        &access_token,
+        access_token,
         &jwt::KEYS.decoding,
         &Validation::new(Algorithm::HS256),
     );
@@ -82,7 +82,7 @@ pub async fn ws_handler(
 }
 
 fn insert_sender(state: Arc<WsState>, uuid: Arc<Uuid>, sender: Sender<Arc<event::WsRequest>>) {
-    state.insert_user_peer_map(uuid.clone(), sender);
+    state.insert_user_peer_map(uuid, sender);
 }
 
 async fn handle_socket(
@@ -114,7 +114,7 @@ async fn handle_socket(
                 .unwrap();
         }
     });
-    let state = state.clone();
+    let state = state;
     tokio::spawn(async move {
         let state = state.clone();
         while let Some(Ok(msg)) = receiver.next().await {

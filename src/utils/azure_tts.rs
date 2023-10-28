@@ -8,6 +8,8 @@ use aspeak::{
 use blake2::{Blake2s256, Digest};
 use tokio::fs;
 
+#[allow(dead_code)]
+
 pub struct TextConfigOptions {
     rate: String,
     voice: String,
@@ -17,7 +19,7 @@ pub struct TextConfigOptions {
 
 impl TextConfigOptions {
     pub fn new_cn() -> Self {
-        TextConfigOptions {
+        Self {
             rate: String::from("-20%"),
             voice: String::from("zh-CN-XiaoxiaoNeural"),
             pitch: String::from("medium"),
@@ -26,7 +28,7 @@ impl TextConfigOptions {
     }
 
     pub fn new_en() -> Self {
-        TextConfigOptions {
+        Self {
             rate: String::from("-20%"),
             voice: String::from("en-US-AriaNeural"),
             pitch: String::from("medium"),

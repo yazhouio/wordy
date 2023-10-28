@@ -80,14 +80,15 @@ async fn handle_login(req: axum::Json<auth::LoginRequest>) -> impl IntoResponse 
             .into_response();
     }
     let resp = db_user.unwrap().login(&req.name, &req.password);
-    match resp {
-        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
-        Err(_) => (
-            StatusCode::UNAUTHORIZED,
-            "Unauthorized: invalid username or password",
-        )
-            .into_response(),
-    }
+    resp.map_or_else(
+        |_| {
+            (
+                StatusCode::UNAUTHORIZED,
+                "Unauthorized: invalid username or password",
+            ).into_response()
+        },
+        |resp| (StatusCode::OK, Json(resp)).into_response(),
+    )
 }
 
 #[derive(serde::Deserialize, Debug, serde::Serialize)]
@@ -97,7 +98,7 @@ struct ClientSaltRequest {
 
 async fn handle_client_salt(Path(name): Path<String>) -> Json<ClientSaltRequest> {
     info!("client salt request: {:?}", name);
-    let salt = match auth::Auth::new_by_name(name.to_owned()) {
+    let salt = match auth::Auth::new_by_name(name) {
         Ok(db_user) => db_user.client_salt,
         Err(_) => {
             let rand_string: String = thread_rng()

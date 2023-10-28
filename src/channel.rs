@@ -1,4 +1,3 @@
-
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
@@ -20,7 +19,10 @@ pub async fn handle_message(
     loop {
         while let Some(msg) = r.recv().await {
             // println!("handle_message: {:?}", msg);
-            handle_message_item(msg, state.clone()).await;
+            handle_message_item(msg, state.clone()).await.map_err(|e| {
+                tracing::error!("handle_message_item error: {:?}", e);
+                anyhow!(e)
+            }).unwrap();
         }
     }
 }
@@ -54,7 +56,7 @@ async fn handle_message_item(
         let msg = Arc::new(msg.body.clone());
         tokio::spawn(async move {
             let msg = msg.clone();
-             match msg.to {
+            match msg.to {
                 0 => {
                     handle_system_message(msg, msg_id.clone(), &sender)
                         .await
@@ -84,14 +86,14 @@ async fn handle_system_message(
     let resp = WsResponse {
         event: event::Event::Loading(true),
         event_type: event::EventType::Loading,
-        msg_id: msg_id.clone().to_string(),
+        msg_id: msg_id.to_string(),
         from: 0,
         to: msg.from,
         reply_msg_id: Some(msg.msg_id.clone()),
     };
     sender.send(Arc::new(resp))?;
     let sender = sender.clone();
-    let msg_id = msg_id.clone().to_string();
+    let msg_id = msg_id.to_string();
     tokio::spawn(async move {
         let resp = handle_system_message_item(msg, msg_id.clone().to_string())
             .await
@@ -100,12 +102,10 @@ async fn handle_system_message(
                 anyhow!(e)
             })?;
         println!("{:#?}", resp);
-        sender.clone().send(Arc::new(resp)).map_err(
-          |e| {
+        sender.clone().send(Arc::new(resp)).map_err(|e| {
             tracing::error!("handle_system_message_item error: {:?}", e);
             anyhow!(e)
-          }
-        )?;
+        })?;
         anyhow::Ok(())
     });
     Ok(())
@@ -129,11 +129,12 @@ async fn handle_system_message_item(
             let openai_key = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not found");
             let text = en_teacher_chat(&openai_key, &message).await?;
             let res = text.choices[0].message.content.to_owned();
-            // let res = "天空的英文是`sky`。它是指地球上大气层上方的空间，通常是呈现蓝色或灰色的。\
-                    //    这是它的英文例句：1. `The sky is so clear today, not a single cloud in \
-                    //    sight.` 2. `When the sun sets, the sky turns into a beautiful mixture of \
-                    //    pink, purple, and orange colors.`"
-                // .to_owned();
+            // let res = "天空的英文是`sky`。它是指地球上大气层上方的空间，
+            // 通常是呈现蓝色或灰色的。\    这是它的英文例句：1. `The sky is so
+            // clear today, not a single cloud in \    sight.` 2. `When the sun
+            // sets, the sky turns into a beautiful mixture of \
+            //    pink, purple, and orange colors.`"
+            // .to_owned();
             resp.event = event::Event::Chat(res);
             resp.event_type = event::EventType::Chat;
         }

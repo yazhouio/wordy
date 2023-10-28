@@ -1,6 +1,4 @@
-// 获取客户端账号和密码（密码有 sha256 混淆）
-// 对比配置文件中的账号和密码
-// 返回是否验证成功，并返回包含 name 和 id 和 token
+#[allow(dead_code)]
 
 use anyhow::{anyhow, Result};
 use blake2::{Blake2b512, Digest};
@@ -60,7 +58,7 @@ pub fn hash(msg: &str) -> String {
 }
 
 impl Auth {
-    pub fn new(
+    pub const fn new(
         name: String,
         id: u64,
         password: String,
@@ -104,7 +102,7 @@ impl Auth {
         if token_data.claims.exp < chrono::Utc::now().timestamp() {
             return Err(anyhow!("access token expired"));
         };
-        Auth::new_by_name(token_data.claims.name)
+        Self::new_by_name(token_data.claims.name)
     }
 
     pub fn from_refresh_token(token: &str) -> Result<Self> {
@@ -118,7 +116,7 @@ impl Auth {
         if token_data.claims.exp < chrono::Utc::now().timestamp() {
             return Err(anyhow!("refresh token expired"));
         }
-        Auth::new_by_name(token_data.claims.name)
+        Self::new_by_name(token_data.claims.name)
     }
 
     pub fn refresh_access_token(&self) -> Result<JWTToken> {
@@ -164,7 +162,7 @@ impl Auth {
 }
 
 impl JWTToken {
-    pub fn new(access_token: String, refresh_token: String) -> Self {
+    pub const fn new(access_token: String, refresh_token: String) -> Self {
         Self {
             access_token,
             refresh_token,
@@ -185,6 +183,6 @@ impl JWTToken {
             refresh_claims,
             &jwt::KEYS.refresh_encoding,
         )?;
-        Ok(JWTToken::new(token, refresh_token))
+        Ok(Self::new(token, refresh_token))
     }
 }

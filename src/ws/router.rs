@@ -1,5 +1,4 @@
-use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, collections::HashMap};
-
+use std::{collections::HashMap, net::SocketAddr, ops::ControlFlow, sync::Arc};
 
 use axum::{
     extract::{
@@ -111,20 +110,34 @@ async fn handle_socket(
                     serde_json::to_string(&msg.clone().as_ref()).unwrap(),
                 ))
                 .await
-                .unwrap();
+                .map_or_else(
+                    |e| {
+                        info!(" {} sent message error: {:#?}", who, e.to_string());
+                    },
+                    |_| {},
+                )
         }
     });
-    let state = state;
-    tokio::spawn(async move {
-        let state = state.clone();
+    let state1 = state.clone();
+    let uuid1 = uuid.clone();
+
+    let task = tokio::spawn(async move {
+        let state = state1.clone();
         while let Some(Ok(msg)) = receiver.next().await {
-            if process_message(state.sender.clone(), uuid.clone(), msg, who)
+            if process_message(state.sender.clone(), uuid1.clone(), msg, who)
                 .await
                 .is_break()
             {
                 break;
             }
         }
+    });
+    tokio::join!(task).0.map_or_else(|e|{
+        info!(" {} close message error: {:#?}", who, e.to_string());
+    },|_| {
+        info!(" {} close message success", who);
+        state.remove_user_peer_map(uuid.clone());
+        state.remove_user_uuid_map(uid, uuid);
     });
 }
 

@@ -69,6 +69,7 @@ pub async fn fetch_speed(azure_tts_key: &str, region: &str, msg: &str) -> Result
     let assets_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
 
     let path = assets_dir.join(&result);
+    dbg!("assets_dir: {:?}", &path);
     {
         if !path.exists() {
             let res: Vec<u8> = text_to_speech(azure_tts_key, region, msg)

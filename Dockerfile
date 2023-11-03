@@ -9,5 +9,5 @@ RUN cargo build --release
 FROM gcr.io/distroless/cc
 
 COPY --from=build-env /app/target/release/chat-ws /
-RUN mkdir -p /opt/chat-ws/assets/
+RUN mkdir /assets/
 CMD ["./chat-ws"]

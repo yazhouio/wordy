@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr, ops::ControlFlow, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
 
 use axum::{
     extract::{
@@ -11,6 +11,7 @@ use axum::{
     routing::{any, get},
     Router, TypedHeader,
 };
+use crossbeam::channel::tick;
 use futures_util::{SinkExt, StreamExt};
 use jsonwebtoken::{Algorithm, Validation};
 use serde::Deserialize;
@@ -84,6 +85,12 @@ fn insert_sender(state: Arc<WsState>, uuid: Arc<Uuid>, sender: Sender<Arc<event:
     state.insert_user_peer_map(uuid, sender);
 }
 
+enum SocketMsg {
+    Close,
+    Ping,
+    Msg(Arc<event::WsRequest>)
+}
+
 async fn handle_socket(
     state: Arc<WsState>,
     uid: u64,
@@ -103,21 +110,49 @@ async fn handle_socket(
     insert(state.clone(), uid, uuid.clone());
     let (s1, mut r1) = mpsc::unbounded_channel::<Arc<event::WsRequest>>();
     insert_sender(state.clone(), uuid.clone(), s1);
+
+    let (s2, r2) = crossbeam::channel::bounded::<SocketMsg>(30);
+    let s21 = s2.clone();
     tokio::spawn(async move {
         while let Some(msg) = r1.recv().await {
-            sender
-                .send(Message::Text(
-                    serde_json::to_string(&msg.clone().as_ref()).unwrap(),
-                ))
-                .await
-                .map_or_else(
-                    |e| {
-                        info!(" {} sent message error: {:#?}", who, e.to_string());
-                    },
-                    |_| {},
-                )
+            s21.send(SocketMsg::Msg(msg)).unwrap();
         }
     });
+    let s22 = s2.clone();
+    tokio::spawn(async move {
+        let ticker = tick(Duration::from_millis(1000));
+        while ticker.recv().is_ok() {
+            s22.send(SocketMsg::Ping).unwrap();
+        }
+    });
+
+    tokio::spawn(async move {
+        while let Ok(msg) = r2.recv() {
+            match msg {
+                SocketMsg::Close => {
+                    sender.close().await.unwrap();
+                }
+                SocketMsg::Ping => {
+                    sender.send(Message::Ping(vec![1,2,3])).await.unwrap();
+                }
+                SocketMsg::Msg(msg) => {
+                    sender
+                        .send(Message::Text(
+                            serde_json::to_string(&msg.clone().as_ref()).unwrap(),
+                        ))
+                        .await
+                        .map_or_else(
+                            |e| {
+                                info!(" {} sent message error: {:#?}", who, e.to_string());
+                            },
+                            |_| {},
+                        )
+                }
+            }
+            
+        }
+    });
+
     let state1 = state.clone();
     let uuid1 = uuid.clone();
 
@@ -176,8 +211,8 @@ async fn process_message(
             return ControlFlow::Break(());
         }
 
-        Message::Pong(v) => {
-            info!(" {who} sent pong with {v:?}");
+        Message::Pong(_) => {
+            // info!(" {who} sent pong with {v:?}");
         }
         // You should never need to manually handle Message::Ping, as axum's websocket library
         // will do so for you automagically by replying with Pong and copying the v according to

@@ -11,7 +11,6 @@ aspeak = { version = "6.0.1", features = ["rustls-tls-webpki-roots"] }
 axum = { version = "0.6.20", features = ["ws", "headers"] }
 blake2 = "0.10.6"
 chrono = "0.4.31"
-crossbeam = { version = "0.8.2", features = ["crossbeam-channel"] }
 dotenv = "0.15.0"
 futures = "0.3.28"
 futures-util = "0.3.28"

@@ -1,5 +1,6 @@
 use std::{collections::HashMap, net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
 
+use anyhow::Context;
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -88,7 +89,7 @@ fn insert_sender(state: Arc<WsState>, uuid: Arc<Uuid>, sender: Sender<Arc<event:
 enum SocketMsg {
     Close,
     Ping,
-    Msg(Arc<event::WsRequest>)
+    Msg(Arc<event::WsRequest>),
 }
 
 async fn handle_socket(
@@ -111,45 +112,50 @@ async fn handle_socket(
     let (s1, mut r1) = mpsc::unbounded_channel::<Arc<event::WsRequest>>();
     insert_sender(state.clone(), uuid.clone(), s1);
 
-    let (s2, r2) = crossbeam::channel::bounded::<SocketMsg>(30);
+    let (s2, r2) = crossbeam::channel::unbounded::<SocketMsg>();
     let s21 = s2.clone();
-    tokio::spawn(async move {
+    let task1 = tokio::spawn(async move {
         while let Some(msg) = r1.recv().await {
-            s21.send(SocketMsg::Msg(msg)).unwrap();
+            if let Err(e) =  s21.send(SocketMsg::Msg(msg.clone())) {
+                info!(" {} sent message {:#?} error: {}", who, msg.clone(), e.to_string());
+                break;
+            }
         }
     });
     let s22 = s2.clone();
-    tokio::spawn(async move {
-        let ticker = tick(Duration::from_millis(1000));
+
+    let task2 = tokio::spawn(async move {
+        let ticker = tick(Duration::from_millis(60 * 1000));
         while ticker.recv().is_ok() {
-            s22.send(SocketMsg::Ping).unwrap();
-        }
+            if let Err(e) = s22.send(SocketMsg::Ping) {
+                    info!(" {} sent ping error: {:#?}", who, e.to_string());
+                    break;
+                }
+            }
     });
 
-    tokio::spawn(async move {
+    let task3 = tokio::spawn(async move {
         while let Ok(msg) = r2.recv() {
             match msg {
                 SocketMsg::Close => {
                     sender.close().await.unwrap();
+                    break;
                 }
                 SocketMsg::Ping => {
-                    sender.send(Message::Ping(vec![1,2,3])).await.unwrap();
+                    sender.send(Message::Ping(vec![1, 2, 3])).await.unwrap();
                 }
-                SocketMsg::Msg(msg) => {
-                    sender
-                        .send(Message::Text(
-                            serde_json::to_string(&msg.clone().as_ref()).unwrap(),
-                        ))
-                        .await
-                        .map_or_else(
-                            |e| {
-                                info!(" {} sent message error: {:#?}", who, e.to_string());
-                            },
-                            |_| {},
-                        )
-                }
+                SocketMsg::Msg(msg) => sender
+                    .send(Message::Text(
+                        serde_json::to_string(&msg.clone().as_ref()).unwrap(),
+                    ))
+                    .await
+                    .map_or_else(
+                        |e| {
+                            info!(" {} sent message error: {:#?}", who, e.to_string());
+                        },
+                        |_| {},
+                    ),
             }
-            
         }
     });
 
@@ -167,13 +173,23 @@ async fn handle_socket(
             }
         }
     });
-    tokio::join!(task).0.map_or_else(|e|{
-        info!(" {} close message error: {:#?}", who, e.to_string());
-    },|_| {
-        info!(" {} close message success", who);
-        state.remove_user_peer_map(uuid.clone());
-        state.remove_user_uuid_map(uid, uuid);
-    });
+    tokio::join!(task).0.map_or_else(
+        |e| {
+            task1.abort();
+            task2.abort();
+            task3.abort();
+            info!(" {} close message error: {:#?}", who, e.to_string());
+        },
+        |_| {
+            info!(" {} close message success", who);
+            s2.send(SocketMsg::Close).unwrap();
+            state.remove_user_peer_map(uuid.clone());
+            state.remove_user_uuid_map(uid, uuid);
+            task1.abort();
+            task2.abort();
+            task3.abort();
+        },
+    );
 }
 
 async fn process_message(

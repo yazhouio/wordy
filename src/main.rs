@@ -1,13 +1,14 @@
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 use axum::{
-    extract::Path,
+    extract::{Path, Query},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use serde_json::Value;
 use tokio::sync::mpsc;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -56,6 +57,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .fallback_service(ServeDir::new(assets_dir).append_index_html_on_directories(true))
         .nest("/ws", ws::router::router(state.clone()))
         .route("/api/login", post(handle_login))
+        .route("/api/refresh_token", post(handle_refresh_token))
         .route("/api/:user/salt", get(handle_client_salt))
         .layer(cors)
         .layer(
@@ -85,7 +87,8 @@ async fn handle_login(req: axum::Json<auth::LoginRequest>) -> impl IntoResponse 
             (
                 StatusCode::UNAUTHORIZED,
                 "Unauthorized: invalid username or password",
-            ).into_response()
+            )
+                .into_response()
         },
         |resp| (StatusCode::OK, Json(resp)).into_response(),
     )
@@ -110,4 +113,36 @@ async fn handle_client_salt(Path(name): Path<String>) -> Json<ClientSaltRequest>
         }
     };
     Json(ClientSaltRequest { salt })
+}
+#[derive(serde::Deserialize, Debug, serde::Serialize)]
+struct RefreshTokenRequest {
+    refresh_token: String,
+}
+async fn handle_refresh_token(
+    Json(RefreshTokenRequest { refresh_token }): Json<RefreshTokenRequest>,
+) -> impl IntoResponse {
+    info!("refresh token request: {:?}", refresh_token);
+    let db_user = auth::Auth::from_refresh_token(&refresh_token);
+    db_user.map_or_else(
+        |_| {
+            return (
+                StatusCode::UNAUTHORIZED,
+                "Unauthorized: invalid refresh token",
+            )
+                .into_response();
+        },
+        |db_user| {
+            let result = db_user.refresh_access_token();
+            result.map_or_else(
+                |_| {
+                    (
+                        StatusCode::UNAUTHORIZED,
+                        "Unauthorized: invalid refresh token",
+                    )
+                        .into_response()
+                },
+                |resp| (StatusCode::OK, Json(resp)).into_response(),
+            )
+        },
+    )
 }

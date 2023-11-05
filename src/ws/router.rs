@@ -1,6 +1,5 @@
 use std::{collections::HashMap, net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
 
-use anyhow::Context;
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -12,7 +11,6 @@ use axum::{
     routing::{any, get},
     Router, TypedHeader,
 };
-use crossbeam::channel::tick;
 use futures_util::{SinkExt, StreamExt};
 use jsonwebtoken::{Algorithm, Validation};
 use serde::Deserialize;
@@ -112,7 +110,7 @@ async fn handle_socket(
     let (s1, mut r1) = mpsc::unbounded_channel::<Arc<event::WsRequest>>();
     insert_sender(state.clone(), uuid.clone(), s1);
 
-    let (s2, r2) = crossbeam::channel::unbounded::<SocketMsg>();
+    let (s2, mut r2) = mpsc::unbounded_channel::<SocketMsg>();
     let s21 = s2.clone();
     let task1 = tokio::spawn(async move {
         while let Some(msg) = r1.recv().await {
@@ -125,8 +123,9 @@ async fn handle_socket(
     let s22 = s2.clone();
 
     let task2 = tokio::spawn(async move {
-        let ticker = tick(Duration::from_millis(30 * 1000));
-        while ticker.recv().is_ok() {
+        let mut ticker = tokio::time::interval(Duration::from_millis(30 * 1000));
+        loop {
+            ticker.tick().await;
             if let Err(e) = s22.send(SocketMsg::Ping) {
                     info!(" {} sent ping error: {:#?}", who, e.to_string());
                     break;
@@ -135,7 +134,7 @@ async fn handle_socket(
     });
 
     let task3 = tokio::spawn(async move {
-        while let Ok(msg) = r2.recv() {
+        while let Some(msg) = r2.recv().await {
             match msg {
                 SocketMsg::Close => {
                     sender.close().await.unwrap();

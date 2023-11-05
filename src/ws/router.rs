@@ -125,7 +125,7 @@ async fn handle_socket(
     let s22 = s2.clone();
 
     let task2 = tokio::spawn(async move {
-        let ticker = tick(Duration::from_millis(60 * 1000));
+        let ticker = tick(Duration::from_millis(30 * 1000));
         while ticker.recv().is_ok() {
             if let Err(e) = s22.send(SocketMsg::Ping) {
                     info!(" {} sent ping error: {:#?}", who, e.to_string());

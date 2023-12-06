@@ -5,12 +5,12 @@ use axum::{
         ws::{Message, WebSocket},
         ConnectInfo, Query, State, WebSocketUpgrade,
     },
-    headers,
     http::StatusCode,
     response::IntoResponse,
     routing::{any, get},
-    Router, TypedHeader,
+    Router,
 };
+use axum_extra::{headers, TypedHeader};
 use futures_util::{SinkExt, StreamExt};
 use jsonwebtoken::{Algorithm, Validation};
 use serde::Deserialize;

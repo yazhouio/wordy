@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, default};
 
 use anyhow::{anyhow, Result};
 use tracing::info;
@@ -128,14 +128,14 @@ async fn handle_system_message_item(
         event::Event::Chat(message) => {
             let openai_key = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not found");
             let text = en_teacher_chat(&openai_key, &message).await?;
-            let res = text.choices[0].message.content.to_owned();
+            let res = text.choices.first().unwrap().message.content.clone();
             // let res = "天空的英文是`sky`。它是指地球上大气层上方的空间，
             // 通常是呈现蓝色或灰色的。\    这是它的英文例句：1. `The sky is so
             // clear today, not a single cloud in \    sight.` 2. `When the sun
             // sets, the sky turns into a beautiful mixture of \
             //    pink, purple, and orange colors.`"
             // .to_owned();
-            resp.event = event::Event::Chat(res);
+            resp.event = event::Event::Chat(res.unwrap_or_default());
             resp.event_type = event::EventType::Chat;
         }
         event::Event::Speech(message) => {

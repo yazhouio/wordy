@@ -9,7 +9,7 @@ use axum::{
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde_json::Value;
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, net::TcpListener};
 use tower_http::{
     cors::{Any, CorsLayer},
     services::ServeDir,
@@ -65,8 +65,9 @@ async fn main() -> Result<(), anyhow::Error> {
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
 
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+        let listener = TcpListener::bind(&addr).await?;
+
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
         .await?;
     anyhow::Ok(())
 }
